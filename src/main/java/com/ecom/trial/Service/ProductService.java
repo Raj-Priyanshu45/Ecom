@@ -65,6 +65,12 @@ public class ProductService {
         );
     }
 
+    private ProductImages getProductImages(int id){
+        return imageRepo.findById(id).orElseThrow(
+            ()-> new ImageNotFoundException("Image Not Found")
+        );
+    }
+
     private String toSlug(String tag) {
     return tag.trim()
               .toLowerCase()
@@ -137,6 +143,8 @@ public class ProductService {
         
         Set<Tags> tag = new HashSet<>();
 
+        List<String> tagList = new ArrayList<>();
+
         for (String st : product.getTags()) {
 
             String slug = toSlug(st);
@@ -152,6 +160,7 @@ public class ProductService {
                     );
 
             tag.add(tg);
+            tagList.add(tg.getName());
         }
         old.setDescription(product.getDescription());
         old.setName((product.getName()));
@@ -159,12 +168,16 @@ public class ProductService {
         old.setTags(tag);
         old.setCount(product.getCount());
 
+        productRepo.save(old);
+
         logger.info("product modified successfully");
         return AddProduct.builder()
                 .name(old.getName())
                 .description(old.getDescription())
                 .sellerId(authentication.getName())
                 .productId(old.getId())
+                .price(old.getPrice())
+                .tags(tagList)
                 .build();
     }
     
@@ -186,7 +199,8 @@ public class ProductService {
 
         logger.info("product successfully deleted");
 
-        old.setDel(true);
+
+        productRepo.deleteById(id);
         return old.getName();
     }
 
@@ -197,16 +211,9 @@ public class ProductService {
         .anyMatch(a -> a.getAuthority().equals("ROLE_"+role.toUpperCase()));
     }
 
-    public List<String> uploadImage(int productId, int primaryKey, MultipartFile[] files, Authentication authentication) throws IOException {
-
-        Products product = getProducts(productId);
-
-        User user = getCurrentUser(authentication);
-
-        if(!user.getKeyCloakId().equals(product.getSeller().getKeyCloakId())){
-            throw new AccessDeniedException("UnAuthorized Attempt");
-        }
-        
+    public List<String> addImages(MultipartFile[] files , int primaryKey , Products product 
+        , boolean assigned
+    ) throws IOException{
         Path uploadPath = Paths.get("uploads");
 
         if(!Files.exists(uploadPath)){
@@ -215,37 +222,112 @@ public class ProductService {
 
         List<String> images = new ArrayList<>();
 
+        boolean flag;
+
         for(int i = 0 ; i < files.length ; i++){
 
             MultipartFile file = files[i];
 
-            String fileName = UUID.randomUUID()+"_"+file.getOriginalFilename();
+            if(file.getSize() > 5 * 1024 * 1024){
+                throw new IllegalArgumentException("File too large");
+            }
+
+            String originalName = file.getOriginalFilename();
+
+            if(originalName == null || !originalName.contains(".")){
+                throw new IllegalArgumentException("Invalid file name");
+            }
+
+            String contentType = file.getContentType();
+
+            if(contentType == null || !contentType.startsWith("image/")){
+                throw new IllegalArgumentException("File must be an image");
+            }
+
+            int dotIndex = originalName.lastIndexOf('.');
+
+            String extension = originalName.substring(dotIndex + 1).toLowerCase();
+            String ext = originalName.substring(dotIndex);
+
+            Set<String> allowed = Set.of("png","jpg","jpeg","webp");
+
+            if(!allowed.contains(extension)){
+                throw new IllegalArgumentException("Invalid image format");
+            }
+
+            String fileName = UUID.randomUUID() + ext;
 
             Path filePath = uploadPath.resolve(fileName);
 
-            Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
+            Files.copy(file.getInputStream(), filePath , StandardCopyOption.REPLACE_EXISTING);
 
             String imageUrl = "/uploads/"+fileName;
 
             images.add(imageUrl);
 
+            flag = false;
+
+            if(!assigned && primaryKey == i){
+                flag = true;
+            }
+
             ProductImages productImages = ProductImages.builder()
                                                         .imageUrl(imageUrl)
-                                                        .primary(i==primaryKey)
+                                                        .primary(flag)
                                                         .product(product)
                                                         .build();
 
             imageRepo.save(productImages);
         }
-
         return images;
+    }
+
+    // public List<String> uploadImage(int productId, int primaryKey, MultipartFile[] files, Authentication authentication) throws IOException {
+
+    //     Products product = getProducts(productId);
+
+    //     User user = getCurrentUser(authentication);
+
+    //     if(!user.getKeyCloakId().equals(product.getSeller().getKeyCloakId())){
+    //         throw new AccessDeniedException("UnAuthorized Attempt");
+    //     }
+
+    //     return addImages(files , primaryKey , product , false);
+    // }
+
+    public List<String>  uploadImage(int productId , int primaryKey, MultipartFile[] files,
+    Authentication authentication
+    ) throws IOException{
+
+        boolean primaryAssigned = imageRepo.existsByProductIdAndPrimaryTrue(productId);
+
+        Products product = getProducts(productId);
+
+        User user = getCurrentUser(authentication);
+
+        if(!user.getKeyCloakId().equals(product.getSeller().getKeyCloakId())){
+            throw new AccessDeniedException("UnAuthorized Attempt");
+        }
+
+        return addImages(files , primaryKey , product , primaryAssigned);
+        
     }
 
 
     //returning list of all products and also apply pagination
     //extract short desc by just taking 25 words of desc it has more take 25 words and then ...
 
-    public void deleteImage(int imageId , int productId) throws IOException{
+    public void deleteImage(int imageId , int productId , Authentication authentication) throws IOException{
+
+        User user = getCurrentUser(authentication);
+
+        Products old = getProducts(productId);
+
+        boolean isAdmin = authCheck(authentication , "admin");
+
+        if(!isAdmin && !old.getSeller().getKeyCloakId().equals(user.getKeyCloakId())){
+            throw new AccessDeniedException("Access denied");
+        }
 
         if(!imageRepo.existsByProductIdAndId(productId, imageId)){
             throw new ImageNotFoundException("Unable to find image for the corresponding product");
@@ -261,9 +343,19 @@ public class ProductService {
         imageRepo.delete(img);
     }
 
-    public void deleteAllImage(int productId) throws IOException {
+    public void deleteAllImage(int productId , Authentication authentication) throws IOException {
 
         List<ProductImages> images = imageRepo.findByProductId(productId);
+
+        User user = getCurrentUser(authentication);
+
+        Products old = getProducts(productId);
+
+        boolean isAdmin = authCheck(authentication , "admin");
+
+        if(!isAdmin && !old.getSeller().getKeyCloakId().equals(user.getKeyCloakId())){
+            throw new AccessDeniedException("Access denied");
+        }
 
         if(images.isEmpty()){
             throw new ImageNotFoundException("No images found for this product");
@@ -302,17 +394,60 @@ public class ProductService {
             
             List<String> imageStrings = new ArrayList<>();
 
-            StringBuilder primary = new StringBuilder("Not Assigned");
+            String primary = "Not Assigned";
 
             for(int i = 0 ; i < imageList.size() ; i++){
 
                 imageStrings.add(imageList.get(i).getImageUrl());
 
                 if(imageList.get(i).isPrimary()){
-                    primary.append(imageList.get(i).getImageUrl());
+                    primary =  imageList.get(i).getImageUrl();
                 }
             }
 
-            return new ChangeImageGETResponse(imageStrings , imageList.size() , primary.toString());
+            return new ChangeImageGETResponse(imageStrings , imageList.size() , primary);
+    }
+
+    public void updatePrimaryImage(int productId , int oldPrimaryImage , int newPrimaryImage , Authentication authentication){
+
+        if(oldPrimaryImage == newPrimaryImage){
+            throw new IllegalArgumentException("Images cannot be same");
+        }
+
+        User user = getCurrentUser(authentication);
+
+        ProductImages productImages1 = imageRepo.findById(oldPrimaryImage).orElseThrow(
+            () -> new ProductNotFoundException("Product not found")
+        );
+
+        ProductImages productImages2 = imageRepo.findById(newPrimaryImage).orElseThrow(
+            () -> new ProductNotFoundException("Product not found")
+        );
+
+        boolean isAdmin = authCheck(authentication , "admin");
+
+        Products products = getProducts(productId);
+
+        if(productImages1.getProduct().getId() != productId ||
+        productImages2.getProduct().getId() != productId){
+            throw new IllegalArgumentException("Images do not belong to this product");
+        }
+
+        if(!isAdmin &&
+        !products.getSeller().getKeyCloakId().equals(user.getKeyCloakId())){
+            throw new AccessDeniedException("Unauthorized Attempt");
+        }
+
+        ProductImages old = getProductImages(oldPrimaryImage);
+
+        ProductImages newImage = getProductImages(newPrimaryImage);
+
+        old.setPrimary(false);
+
+        newImage.setPrimary(true);
+
+        imageRepo.save(old);
+
+        imageRepo.save(newImage);
     }
 }

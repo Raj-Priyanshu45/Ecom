@@ -4,12 +4,14 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Set;
 
+import org.hibernate.annotations.SQLDelete;
+import org.hibernate.annotations.SQLRestriction;
 import org.springframework.data.annotation.CreatedBy;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedBy;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
-
+import java.util.List;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -42,9 +44,12 @@ import lombok.Setter;
 @Table(
     indexes={
         @Index(name="idx_modified" , columnList="updatedAt"),
-        @Index(name="idx_seller" , columnList="seller")
+        @Index(name="idx_seller" , columnList="seller_Id"),
+        @Index(name="idx_isdel", columnList="is_del")
     }
 )
+@SQLRestriction("is_del = false")
+@SQLDelete(sql = "UPDATE products SET is_del = true WHERE id=?")
 public class Products {
     
     @Id
@@ -60,7 +65,9 @@ public class Products {
     @NotNull
     private BigDecimal price;
 
-    private boolean isDel;
+    @Column(name = "is_del")
+    @Builder.Default
+    private boolean isDel = false;
 
     @ManyToOne
     @JoinColumn(name="seller_Id")
@@ -92,6 +99,6 @@ public class Products {
     
     private BigDecimal discount;
 
-    @OneToMany(mappedBy="product" , cascade=CascadeType.ALL)
-    private ProductImages productImages;
+    @OneToMany(mappedBy="product" , cascade=CascadeType.ALL , orphanRemoval = true)
+    private List<ProductImages> productImages;
 }
