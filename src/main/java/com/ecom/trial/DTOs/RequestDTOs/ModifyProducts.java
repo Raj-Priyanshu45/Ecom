@@ -16,9 +16,6 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @Builder
 public class ModifyProducts {
-    
-    @NotNull
-    private int id;
 
     @NotBlank
     private String name;

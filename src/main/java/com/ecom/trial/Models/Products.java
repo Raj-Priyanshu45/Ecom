@@ -101,4 +101,10 @@ public class Products {
 
     @OneToMany(mappedBy="product" , cascade=CascadeType.ALL , orphanRemoval = true)
     private List<ProductImages> productImages;
+
+    private int reviewCount;
+
+    private int ratingSum;
+
+    private double ratingAverage;
 }

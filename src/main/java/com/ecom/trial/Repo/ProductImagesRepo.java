@@ -1,5 +1,7 @@
 package com.ecom.trial.Repo;
 
+import java.util.List;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -7,7 +9,6 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import com.ecom.trial.Models.ProductImages;
-import java.util.List;
 
 @Repository
 public interface ProductImagesRepo extends JpaRepository<ProductImages, Integer>{
@@ -18,13 +19,13 @@ public interface ProductImagesRepo extends JpaRepository<ProductImages, Integer>
 
     void deleteByProductId(int id);
 
-    boolean existsByProductIdAndPrimaryTrue(int productId);
+    boolean existsByProductIdAndPrimaryImageTrue(int productId);
 
     @Modifying
-    @Query("UPDATE ProductImages p SET p.primary = false WHERE p.id = :productId")
-    void clearPrimary(@Param("productId") int id);
+    @Query("UPDATE ProductImages p SET p.primaryImage = false WHERE p.id = :productId")
+    void clearPrimaryImage(@Param("productId") int id);
 
     @Modifying
-    @Query("UPDATE ProductImages p SET p.primary = true WHERE p.id = :productId")
-    void updatePrimary(@Param("productId") int id);
+    @Query("UPDATE ProductImages p SET p.primaryImage = true WHERE p.id = :productId")
+    void updatePrimaryImage(@Param("productId") int id);
 }

@@ -13,6 +13,8 @@ import java.util.UUID;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -82,6 +84,7 @@ public class ProductService {
         return imageRepo.findByProductId(productId);
     }
 
+    @CacheEvict(value="product")
     public AddProduct saveProduct(CreateProducts product , Authentication authentication){
 
         User user = getCurrentUser(authentication);
@@ -129,6 +132,7 @@ public class ProductService {
             .build();
     }
 
+    @CacheEvict(value="Product")
     public AddProduct modifyProduct(int id , ModifyProducts product , Authentication authentication){
 
         User user = getCurrentUser(authentication);
@@ -181,6 +185,9 @@ public class ProductService {
                 .build();
     }
     
+    @Caching( evict = {
+        @CacheEvict(value = "product")
+    })
     public String deleteProduct(int id , Authentication authentication){
 
         User user = getCurrentUser(authentication);
@@ -273,7 +280,7 @@ public class ProductService {
 
             ProductImages productImages = ProductImages.builder()
                                                         .imageUrl(imageUrl)
-                                                        .primary(flag)
+                                                        .primaryImage(flag)
                                                         .product(product)
                                                         .build();
 
@@ -299,7 +306,7 @@ public class ProductService {
     Authentication authentication
     ) throws IOException{
 
-        boolean primaryAssigned = imageRepo.existsByProductIdAndPrimaryTrue(productId);
+        boolean primaryAssigned = imageRepo.existsByProductIdAndPrimaryImageTrue(productId);
 
         Products product = getProducts(productId);
 
@@ -400,7 +407,7 @@ public class ProductService {
 
                 imageStrings.add(imageList.get(i).getImageUrl());
 
-                if(imageList.get(i).isPrimary()){
+                if(imageList.get(i).isPrimaryImage()){
                     primary =  imageList.get(i).getImageUrl();
                 }
             }
@@ -442,12 +449,17 @@ public class ProductService {
 
         ProductImages newImage = getProductImages(newPrimaryImage);
 
-        old.setPrimary(false);
+        old.setPrimaryImage(false);
 
-        newImage.setPrimary(true);
+        newImage.setPrimaryImage(true);
 
         imageRepo.save(old);
 
         imageRepo.save(newImage);
+    }
+
+    public double updateRating(int productId , int rating , String review){
+        
+        return 0;
     }
 }

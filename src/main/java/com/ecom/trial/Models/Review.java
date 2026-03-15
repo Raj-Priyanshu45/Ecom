@@ -2,38 +2,42 @@ package com.ecom.trial.Models;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.Index;
-import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
+import jakarta.persistence.GenerationType;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+
 @Entity
-@Getter
-@Setter
 @AllArgsConstructor
 @NoArgsConstructor
+@Getter
+@Setter
 @Builder
-@Table(indexes={
-    @Index(name="idx_product_Id" , columnList="product")
-})
-public class ProductImages {
-    
+@Table(
+    uniqueConstraints={
+        @UniqueConstraint(columnNames={"user_id","product_id"})
+    }
+)
+public class Review {
+
     @Id
     @GeneratedValue(strategy=GenerationType.IDENTITY)
-    private int id;
+    private Long id;
 
-    @JoinColumn(name="product_Id")
+    private int rating;
+
+    private String comment;
+
     @ManyToOne
     private Products product;
 
-    private String imageUrl;
-
-    private boolean primaryImage;
+    @ManyToOne
+    private User user;
 }
