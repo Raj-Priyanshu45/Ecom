@@ -27,7 +27,7 @@ public class KeyCloakConfig {
 
         return KeycloakBuilder.builder()
                 .serverUrl(serverUrl)
-                .realm("master")
+                .realm(realm)
                 .clientId(clientId)
                 .clientSecret(clientSecret)
                 .grantType(OAuth2Constants.CLIENT_CREDENTIALS)

@@ -67,7 +67,7 @@ public class GlobalExceptionalHandler extends ResponseEntityExceptionHandler{
             Exception ex,
             WebRequest request) {
 
-
+                ex.printStackTrace();
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
                 ErrorMessageFormat.builder()
                         .timeStamp(LocalDateTime.now())

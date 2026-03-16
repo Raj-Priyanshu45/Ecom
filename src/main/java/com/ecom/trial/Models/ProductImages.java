@@ -21,7 +21,7 @@ import lombok.Setter;
 @NoArgsConstructor
 @Builder
 @Table(indexes={
-    @Index(name="idx_product_Id" , columnList="product")
+    @Index(name="idx_product_Id" , columnList="product_Id")
 })
 public class ProductImages {
     
